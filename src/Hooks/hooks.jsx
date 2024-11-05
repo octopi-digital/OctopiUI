@@ -8,13 +8,19 @@ const useGitHubRepo = () => {
 
   const owner = "octopi-digital";
   const repo = "raw-custom-components-wordpress-ghl";
-
+  const token = import.meta.env.VITE_GITHUB_TOKEN; 
+  console.log(token)
   useEffect(() => {
     const fetchRepoContents = async () => {
       try {
-        // Fetch the list of files in the repository
+        // Fetch the list of files in the repository with authorization
         const response = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`
+          `https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`,
+          {
+            headers: {
+              Authorization: `token ${token}`,
+            },
+          }
         );
 
         if (!response.ok) {
@@ -28,7 +34,12 @@ const useGitHubRepo = () => {
         for (const file of data.tree) {
           if (file.type === 'blob') {
             const fileResponse = await fetch(
-              `https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`
+              `https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`,
+              {
+                headers: {
+                  Authorization: `token ${token}`,
+                },
+              }
             );
 
             if (!fileResponse.ok) {
@@ -67,7 +78,7 @@ const useGitHubRepo = () => {
     };
 
     fetchRepoContents();
-  }, [owner, repo]);
+  }, [owner, repo, token]);
 
   return { files, loading, error };
 };
