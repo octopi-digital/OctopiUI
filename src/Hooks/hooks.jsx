@@ -1,4 +1,3 @@
-// useGitHubRepo.js
 import { useState, useEffect } from 'react';
 
 const useGitHubRepo = () => {
@@ -8,12 +7,12 @@ const useGitHubRepo = () => {
 
   const owner = "octopi-digital";
   const repo = "raw-custom-components-wordpress-ghl";
-  const token = import.meta.env.VITE_GITHUB_TOKEN; 
-  console.log(token)
+  const token = import.meta.env.VITE_GITHUB_TOKEN;
+
   useEffect(() => {
     const fetchRepoContents = async () => {
       try {
-        // Fetch the list of files in the repository with authorization
+    
         const response = await fetch(
           `https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`,
           {
@@ -28,46 +27,37 @@ const useGitHubRepo = () => {
         }
 
         const data = await response.json();
-        const fileDataArray = [];
+        
+        // Filter to retrieve only text files (skipping images)
+        const textFiles = data.tree.filter(file => 
+          file.type === 'blob' && !file.path.match(/\.(jpg|jpeg|png|gif|bmp|svg)$/i)
+        );
 
-        // Loop through each file in the repository
-        for (const file of data.tree) {
-          if (file.type === 'blob') {
-            const fileResponse = await fetch(
-              `https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`,
-              {
-                headers: {
-                  Authorization: `token ${token}`,
-                },
-              }
-            );
-
-            if (!fileResponse.ok) {
-              console.error(`Error fetching file ${file.path}: ${fileResponse.statusText}`);
-              continue;
+        // Fetch all text files in parallel
+        const filePromises = textFiles.map(async (file) => {
+          const fileResponse = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`,
+            {
+              headers: {
+                Authorization: `token ${token}`,
+              },
             }
+          );
 
-            const fileData = await fileResponse.json();
-            let content;
-
-            // Check if the file is an image or text file
-            if (file.path.match(/\.(jpg|jpeg|png|gif|bmp|svg)$/i)) {
-              // Set content to null for images (we'll just use the download URL)
-              content = null;
-            } else {
-              // Decode content for text-based files
-              content = atob(fileData.content);
-            }
-
-            // Add file information to array
-            fileDataArray.push({
-              path: file.path,
-              content,
-              isImage: file.path.match(/\.(jpg|jpeg|png|gif|bmp|svg)$/i),
-              downloadUrl: fileData.download_url,
-            });
+          if (!fileResponse.ok) {
+            console.error(`Error fetching file ${file.path}: ${fileResponse.statusText}`);
+            return null; // Skip this file if there's an error
           }
-        }
+
+          const fileData = await fileResponse.json();
+          return {
+            path: file.path,
+            content: atob(fileData.content),
+            downloadUrl: fileData.download_url,
+          };
+        });
+
+        const fileDataArray = (await Promise.all(filePromises)).filter(Boolean); // Filter out any failed requests
 
         setFiles(fileDataArray);
       } catch (error) {
@@ -84,3 +74,5 @@ const useGitHubRepo = () => {
 };
 
 export default useGitHubRepo;
+
+
